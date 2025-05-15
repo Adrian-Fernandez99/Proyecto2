@@ -26,14 +26,13 @@ uint16_t ADC_read(uint8_t PIN);
 
 uint16_t ADC_servo1 = 0;
 uint16_t ADC_servo2 = 0;
+uint16_t ADC_servo3 = 0;
+uint16_t ADC_servo4 = 0;
 
 uint16_t PWM_1 = 0;
 uint16_t PWM_2 = 0;
-uint16_t PWM_3 = 0;
-uint16_t PWM_4 = 0;
-
-uint8_t TMR_val = 254;
-uint16_t momento = 0;
+uint8_t PWM_3 = 0;
+uint8_t PWM_4 = 0;
 
 // MAIN LOOP
 int main(void)
@@ -49,6 +48,16 @@ int main(void)
 		
 		OCR1A = PWM_1;
 		OCR1B = PWM_2;
+		
+		ADC_servo3 = ADC_read(4);
+		PWM_3 = ((ADC_servo3 * 200UL / 1023) + 25);
+		
+		OCR2A = PWM_3; // Setear duty cycle
+		
+		ADC_servo4 = ADC_read(5);
+		PWM_4 = ((ADC_servo4 * 200UL / 1023) + 25);
+		
+		OCR2B = PWM_4; // Setear duty cycle
 
 		_delay_ms(20);  // Tiempo entre actualizaciones
 
@@ -61,6 +70,8 @@ void setup()
 {
 	cli();
 	DDRB |= (1 << PINB1) | (1 << PINB2) | (1 << PINB3) | (1 << PINB4);  // D9 y D10 como salida
+	DDRD |= (1 << PIND3);  // D9 y D10 como salida
+	
 	PWM_init();
 	ADC_init();
 	sei();
@@ -68,11 +79,16 @@ void setup()
 
 void PWM_init()
 {
-	
+	// Timer 1
 	TCCR1A = (1 << COM1A1) | (1 << COM1B1) | (1 << WGM11);
 	TCCR1B = (1 << WGM13) | (1 << WGM12) | (1 << CS11);  // Modo Fast PWM 14, TOP = ICR1 y prescaler = 8
 
 	ICR1 = 20000;  // Setear Top como 20ms
+	
+	// Timer 2
+	TCCR2A = (1 << COM2A1) | (1 << COM0B1) | (1 << WGM21) | (1 << WGM20); // Configurar Fast PWM, no-inverting mode
+	TCCR2B = (1 << CS22) | (1 << CS20); // Prescaler de 
+
 }
 
 void ADC_init()
@@ -84,9 +100,6 @@ void ADC_init()
 void TMR0_init()
 {
 	
-	//TCCR0B = (1 << CS01) | (1 << CS00); // Prescaler 1024
-	TIMSK0 = (1 << TOIE0);
-	TCNT0 = TMR_val;
 }
 
 uint16_t ADC_read(uint8_t PIN)
@@ -117,7 +130,7 @@ void mapeo_servo(uint8_t PWM_select, uint16_t ADC_servo1, uint16_t ADC_servo2, u
 	}
 	else if (ADC_servo2 < 450)
 	{
-		(*PWM_2) = (450 * 4000UL) / 1023 + 1000;
+		(*PWM_2) = (450 * 4000UL) / 1023 + 1000;	
 	}
 	else if (ADC_servo2 > 560)
 	{
@@ -130,23 +143,6 @@ void mapeo_servo(uint8_t PWM_select, uint16_t ADC_servo1, uint16_t ADC_servo2, u
 ISR(TIMER0_OVF_vect)
 {
 	cli();
-	
-	momento++;
-	if (momento == 20000)
-	{
-		momento = 0;  // Encender LED
-	}
-	
-	if (momento < PWM_3)
-	{
-		PORTB |= (1 << PORTB3);  // Encender LED
-	}
-	else
-	{
-		PORTB &= ~(1 << PORTB3); // Apagar LED
-	}
-	
-	TCNT0 = TMR_val;  // Precarga el timer
 	
 	sei();
 }
