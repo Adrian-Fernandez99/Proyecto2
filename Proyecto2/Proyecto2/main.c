@@ -44,6 +44,7 @@ uint8_t PWM_4 = 0;
 
 uint8_t modo = 0;
 uint8_t place = 0;
+uint8_t habilitar = 0;
 
 // MAIN LOOP
 int main(void)
@@ -72,6 +73,15 @@ int main(void)
 			PWM_4 = map_servo2(ADC_servo4);
 			
 			OCR2B = PWM_4; // Setear duty cycle
+			
+			if (habilitar == 1)
+			{
+				save_(1, place, ADC_servo1);
+				save_(2, place, ADC_servo2);
+				save_(3, place, ADC_servo3);
+				save_(4, place, ADC_servo4);
+				habilitar = 0;
+			}
 
 			_delay_ms(20);  // Tiempo entre actualizaciones
 		}
@@ -278,6 +288,8 @@ ISR(TIMER0_OVF_vect)
 ISR(PCINT2_vect)
 {
 	cli();
+	
+	_delay_ms(5);
 	// Si el pin está encendido en el pin 2 incrementa
 	if (!(PIND & (1 << PORTD2)))
 	{
@@ -291,7 +303,7 @@ ISR(PCINT2_vect)
 	else if (!(PIND & (1 << PORTD4)))
 	{
 		place++;
-		if (place == 5)
+		if (place == 4)
 		{
 			place = 0;
 		}
@@ -299,7 +311,7 @@ ISR(PCINT2_vect)
 	// Si el pin está encendido en el pin 5 decrementa
 	else if (!(PIND & (1 << PORTD5)))
 	{
-		
+		habilitar = 1;
 	}
 	sei();
 }
