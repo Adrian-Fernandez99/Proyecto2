@@ -20,7 +20,11 @@ uso de dos potenciometros ditstintos.
 void setup();
 void PWM_init();
 void ADC_init();
+
 void mapeo_servo(uint8_t PWM_select, uint16_t ADC_servo1, uint16_t ADC_servo2, uint16_t* PWM_1, uint16_t* PWM_2);
+
+void writeEEPROM(uint16_t direccion, uint8_t dato);
+uint8_t read_EEPROM(uint16_t direccion);
 
 uint16_t ADC_read(uint8_t PIN);
 
@@ -34,32 +38,59 @@ uint16_t PWM_2 = 0;
 uint8_t PWM_3 = 0;
 uint8_t PWM_4 = 0;
 
+uint8_t modo = 0;
+uint8_t place = 0;
+
 // MAIN LOOP
 int main(void)
 {
 	setup();
 	while (1)
 	{	
-		ADC_servo1 = ADC_read(6);
-		ADC_servo2 = ADC_read(7);
-		
-		mapeo_servo(1, ADC_servo1, ADC_servo2, &PWM_1, &PWM_2);
-		mapeo_servo(0, ADC_servo1, ADC_servo2, &PWM_1, &PWM_2);
-		
-		OCR1A = PWM_1;
-		OCR1B = PWM_2;
-		
-		ADC_servo3 = ADC_read(4);
-		PWM_3 = ((ADC_servo3 * 200UL / 1023) + 25);
-		
-		OCR2A = PWM_3; // Setear duty cycle
-		
-		ADC_servo4 = ADC_read(5);
-		PWM_4 = ((ADC_servo4 * 200UL / 1023) + 25);
-		
-		OCR2B = PWM_4; // Setear duty cycle
+		if (modo == 0)
+		{
+			ADC_servo1 = ADC_read(6);
+			ADC_servo2 = ADC_read(7);
+			
+			mapeo_servo(1, ADC_servo1, ADC_servo2, &PWM_1, &PWM_2);
+			mapeo_servo(0, ADC_servo1, ADC_servo2, &PWM_1, &PWM_2);
+			
+			OCR1A = PWM_1;
+			OCR1B = PWM_2;
+			
+			ADC_servo3 = ADC_read(4);
+			PWM_3 = map_servo2(ADC_servo3);
+			
+			OCR2A = PWM_3; // Setear duty cycle
+			
+			ADC_servo4 = ADC_read(5);
+			PWM_4 = map_servo2(ADC_servo4);
+			
+			OCR2B = PWM_4; // Setear duty cycle
 
-		_delay_ms(20);  // Tiempo entre actualizaciones
+			_delay_ms(20);  // Tiempo entre actualizaciones
+		}
+		
+		else if (modo == 1)
+		{
+			ADC_servo1 = ((load_(1, place, 0)) << 8) | (load_(1, place, 1));
+			ADC_servo2 = ((load_(2, place, 0)) << 8) | (load_(2, place, 1));
+			
+			mapeo_servo(1, ADC_servo1, ADC_servo2, &PWM_1, &PWM_2);
+			mapeo_servo(0, ADC_servo1, ADC_servo2, &PWM_1, &PWM_2);
+			OCR1A = PWM_1;
+			OCR1B = PWM_2;
+			
+			ADC_servo3 = ((load_(3, place, 0)) << 8) | (load_(3, place, 1));
+			PWM_3 = map_servo2(ADC_servo3);
+			OCR2A = PWM_3; // Setear duty cycle
+			
+			ADC_servo4 = ((load_(4, place, 0)) << 8) | (load_(4, place, 1));
+			PWM_4 = map_servo2(ADC_servo4);
+			OCR2B = PWM_4; // Setear duty cycle
+
+			_delay_ms(20);  // Tiempo entre actualizaciones
+		}
 
 	}
 }
@@ -69,11 +100,17 @@ int main(void)
 void setup()
 {
 	cli();
-	DDRB |= (1 << PINB1) | (1 << PINB2) | (1 << PINB3) | (1 << PINB4);  // D9 y D10 como salida
-	DDRD |= (1 << PIND3);  // D9 y D10 como salida
+	DDRB = 0xFF;  // Puerto B como salida
+	DDRD |= (1 << PIND3);  // PIND3 como salida
+	PORTD |= (1 << PIND2) | (1 << PIND4) | (1 << PIND5);
+	DDRC = 0x0F;  // Mitad de puerto C como salida
+	
+	PCMSK2 |= (1 << PIND2) | (1 << PIND4) | (1 << PIND5);
+	PCICR |= (1 << PCIE2);
 	
 	PWM_init();
 	ADC_init();
+
 	sei();
 }
 
@@ -139,10 +176,72 @@ void mapeo_servo(uint8_t PWM_select, uint16_t ADC_servo1, uint16_t ADC_servo2, u
 	
 }
 
+uint16_t map_servo2(uint16_t ADC_need)
+{
+	uint16_t valor = ((ADC_need * 200UL / 1023) + 25);
+	return valor;
+}
+
+void writeEEPROM(uint16_t direccion, uint8_t dato) 
+{
+	while (EECR & (1 << EEPE));
+	EEAR = direccion;
+	EEDR = dato;
+	EECR |= (1 << EEMPE);
+	EECR |= (1 << EEPE);
+}
+
+uint8_t read_EEPROM(uint16_t direccion)
+{
+	while (EECR & (1 << EEPE));
+	EEAR = direccion;
+	EECR |= (1 << EERE);
+	return EEDR;
+}
+
+void save_(uint8_t servo, uint8_t posicion, uint16_t dato)
+{
+	uint8_t temporal = (posicion * 8) + (servo * 2);
+	writeEEPROM(temporal, (dato >> 8));
+	temporal + 1;
+	writeEEPROM(temporal, (dato & 0xFF));
+}
+
+uint8_t load_(uint8_t servo, uint8_t posicion, uint8_t punch)
+{
+	uint8_t temporal = (posicion * 8) + (servo * 2) + punch;
+	return read_EEPROM(temporal);
+}
+
 // Interrupt routines
 ISR(TIMER0_OVF_vect)
 {
 	cli();
-	
+		
+	sei();
+}
+
+ISR(PCINT2_vect)
+{
+	cli();
+	// Si el pin está encendido en el pin 2 incrementa
+	if (!(PIND & (1 << PORTD2)))
+	{
+		modo++;
+		if (modo == 4)
+		{
+			modo = 0;
+		}
+	}
+	// Si el pin está encendido en el pin 4 incrementa
+	else if (!(PIND & (1 << PORTD4)))
+	{
+		
+	}
+	// Si el pin está encendido en el pin 5 decrementa
+	else if (!(PIND & (1 << PORTD5)))
+	{
+		
+	}
 	sei();
 }
