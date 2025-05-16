@@ -22,11 +22,15 @@ void PWM_init();
 void ADC_init();
 
 void mapeo_servo(uint8_t PWM_select, uint16_t ADC_servo1, uint16_t ADC_servo2, uint16_t* PWM_1, uint16_t* PWM_2);
+uint16_t map_servo2(uint16_t ADC_need);
+uint16_t ADC_read(uint8_t PIN);
 
 void writeEEPROM(uint16_t direccion, uint8_t dato);
 uint8_t read_EEPROM(uint16_t direccion);
+void save_(uint8_t servo, uint8_t posicion, uint16_t dato);
+uint8_t load_(uint8_t servo, uint8_t posicion, uint8_t punch);
 
-uint16_t ADC_read(uint8_t PIN);
+void led_on(uint8_t modo, uint8_t place);
 
 uint16_t ADC_servo1 = 0;
 uint16_t ADC_servo2 = 0;
@@ -47,6 +51,7 @@ int main(void)
 	setup();
 	while (1)
 	{	
+		led_on(modo, place);
 		if (modo == 0)
 		{
 			ADC_servo1 = ADC_read(6);
@@ -203,7 +208,7 @@ void save_(uint8_t servo, uint8_t posicion, uint16_t dato)
 {
 	uint8_t temporal = (posicion * 8) + (servo * 2);
 	writeEEPROM(temporal, (dato >> 8));
-	temporal + 1;
+	temporal++;
 	writeEEPROM(temporal, (dato & 0xFF));
 }
 
@@ -211,6 +216,55 @@ uint8_t load_(uint8_t servo, uint8_t posicion, uint8_t punch)
 {
 	uint8_t temporal = (posicion * 8) + (servo * 2) + punch;
 	return read_EEPROM(temporal);
+}
+
+void led_on(uint8_t modo, uint8_t place)
+{
+	if (modo == 1)
+	{
+		PORTB |= (1 << PORTB5);
+		PORTB &= ~(1 << PORTB4);
+	}
+	else if (modo == 2)
+	{
+		PORTB |= (1 << PORTB4);
+		PORTB &= ~(1 << PORTB5);
+	}
+	else
+	{
+		PORTB &= ~(1 << PORTB5);
+		PORTB &= ~(1 << PORTB4);
+	}
+	
+	// Leds para posición
+	if (place == 1)
+	{
+		PORTC |= (1 << PORTC1);
+		PORTC &= ~(1 << PORTC0);
+		PORTC &= ~(1 << PORTC2);
+		PORTC &= ~(1 << PORTC3);
+	}
+	else if (place == 2)
+	{
+		PORTC |= (1 << PORTC2);
+		PORTC &= ~(1 << PORTC0);
+		PORTC &= ~(1 << PORTC1);
+		PORTC &= ~(1 << PORTC3);
+	}
+	else if (place == 3)
+	{
+		PORTC |= (1 << PORTC3);
+		PORTC &= ~(1 << PORTC0);
+		PORTC &= ~(1 << PORTC2);
+		PORTC &= ~(1 << PORTC1);
+	}
+	else
+	{
+		PORTC |= (1 << PORTC0);
+		PORTC &= ~(1 << PORTC1);
+		PORTC &= ~(1 << PORTC2);
+		PORTC &= ~(1 << PORTC3);
+	}
 }
 
 // Interrupt routines
@@ -228,7 +282,7 @@ ISR(PCINT2_vect)
 	if (!(PIND & (1 << PORTD2)))
 	{
 		modo++;
-		if (modo == 4)
+		if (modo == 3)
 		{
 			modo = 0;
 		}
@@ -236,7 +290,11 @@ ISR(PCINT2_vect)
 	// Si el pin está encendido en el pin 4 incrementa
 	else if (!(PIND & (1 << PORTD4)))
 	{
-		
+		place++;
+		if (place == 5)
+		{
+			place = 0;
+		}
 	}
 	// Si el pin está encendido en el pin 5 decrementa
 	else if (!(PIND & (1 << PORTD5)))
