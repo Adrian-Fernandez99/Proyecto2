@@ -20,6 +20,10 @@ uso de dos potenciometros ditstintos.
 void setup();
 void PWM_init();
 void ADC_init();
+void UART_init();
+
+void write_char(char caracter);
+void write_str(char* texto);
 
 void mapeo_servo(uint8_t PWM_select, uint16_t ADC_servo1, uint16_t ADC_servo2, uint16_t* PWM_1, uint16_t* PWM_2);
 uint16_t map_servo2(uint16_t ADC_need);
@@ -45,6 +49,13 @@ uint8_t PWM_4 = 0;
 uint8_t modo = 0;
 uint8_t place = 0;
 uint8_t habilitar = 0;
+
+uint16_t servil4 = 0;
+
+char comando;
+char doble_comando;
+char buffer[5];
+uint8_t index;
 
 // MAIN LOOP
 int main(void)
@@ -106,6 +117,19 @@ int main(void)
 
 			_delay_ms(20);  // Tiempo entre actualizaciones
 		}
+		
+		else if (modo == 2)
+		{
+			ADC_servo4 = servil4;
+			
+			mapeo_servo(1, ADC_servo1, ADC_servo2, &PWM_1, &PWM_2);
+			mapeo_servo(0, ADC_servo1, ADC_servo2, &PWM_1, &PWM_2);
+			map_servo2(ADC_servo4);
+
+			
+			OCR1A = PWM_1;
+			OCR1B = PWM_2;
+		}
 
 	}
 }
@@ -125,7 +149,8 @@ void setup()
 	
 	PWM_init();
 	ADC_init();
-
+	UART_init();
+	
 	sei();
 }
 
@@ -149,9 +174,15 @@ void ADC_init()
 	ADCSRA = (1 << ADEN) | (1 << ADPS2) | (1 << ADPS1);  // prescaler = 64
 }
 
-void TMR0_init()
+void UART_init()
 {
+	DDRD |= (1 << DDD1);	// Configuración de pines rx y tx
+	DDRD &= ~(1 << DDD0);
+	UCSR0A = 0;				// Configuración del serial
+	UCSR0B |= (1 << RXCIE0) | (1<< RXEN0) | (1 << TXEN0);
+	UCSR0C = (1 << UCSZ01) | (1 << UCSZ00);
 	
+	UBRR0 = 103;	// BAUD RATE a 9600
 }
 
 uint16_t ADC_read(uint8_t PIN)
@@ -277,14 +308,20 @@ void led_on(uint8_t modo, uint8_t place)
 	}
 }
 
-// Interrupt routines
-ISR(TIMER0_OVF_vect)
+void write_char(char caracter)
 {
-	cli();
-		
-	sei();
+	UDR0 = caracter;
 }
 
+void write_str(char* texto)
+{
+	for(uint8_t i = 0; *(texto+i) != '\0'; i++)
+	{
+		write_char(*(texto+i));
+	}
+}
+
+// Interrupt routines
 ISR(PCINT2_vect)
 {
 	cli();
@@ -299,6 +336,7 @@ ISR(PCINT2_vect)
 			modo = 0;
 		}
 	}
+	
 	// Si el pin está encendido en el pin 4 incrementa
 	else if (!(PIND & (1 << PORTD4)))
 	{
@@ -308,10 +346,29 @@ ISR(PCINT2_vect)
 			place = 0;
 		}
 	}
+	
 	// Si el pin está encendido en el pin 5 decrementa
 	else if (!(PIND & (1 << PORTD5)))
 	{
 		habilitar = 1;
 	}
+	sei();
+}
+
+ISR(USART_RX_vect)
+{
+	cli();
+	
+	comando = UDR0;
+	
+	if (comando == '\n')  // Usamos salto de línea como terminador
+	{
+		buffer[index] = '\0'; // cerramos el string
+		doble_comando = atoi((char*)buffer); // convertimos a número
+		index = 0; // reseteamos para el próximo número
+	}
+
+	write_char(comando);
+	
 	sei();
 }
