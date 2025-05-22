@@ -54,8 +54,12 @@ uint16_t servil4 = 0;
 
 char comando;
 char doble_comando;
-char buffer[5];
-uint8_t index;
+volatile char buffer[10];
+volatile uint8_t indice = 0;
+volatile uint8_t new_data = 0;
+volatile uint8_t largo_buff = 0;
+
+uint16_t buffertime(char* buffer);
 
 // MAIN LOOP
 int main(void)
@@ -120,15 +124,35 @@ int main(void)
 		
 		else if (modo == 2)
 		{
+			if (new_data == 1)
+			{
+				servil4 = 0;
+				for (uint8_t i = 0; i < largo_buff; i++)
+				{
+					servil4 = servil4 * 10 + (buffer[i] - '0');
+				}
+				
+				if (servil4 > 1023)
+				servil4 = 1023;
+				else if (servil4 < 139)
+				servil4 = 139;
+
+				new_data = 0;
+			}
+			
 			ADC_servo4 = servil4;
 			
 			mapeo_servo(1, ADC_servo1, ADC_servo2, &PWM_1, &PWM_2);
 			mapeo_servo(0, ADC_servo1, ADC_servo2, &PWM_1, &PWM_2);
-			map_servo2(ADC_servo4);
-
-			
 			OCR1A = PWM_1;
 			OCR1B = PWM_2;
+			
+			PWM_3 = map_servo2(ADC_servo3);
+			OCR2A = PWM_3; // Setear duty cycle
+			
+			PWM_4 = map_servo2(ADC_servo4);
+			OCR2B = PWM_4; // Setear duty cycle
+
 		}
 
 	}
@@ -309,7 +333,8 @@ void led_on(uint8_t modo, uint8_t place)
 }
 
 void write_char(char caracter)
-{
+{	
+	while (!(UCSR0A & (1 << UDRE0)));
 	UDR0 = caracter;
 }
 
@@ -319,6 +344,19 @@ void write_str(char* texto)
 	{
 		write_char(*(texto+i));
 	}
+}
+
+uint16_t buffertime(char* buffer)
+{
+	uint16_t resultado = 0;
+	for (char* i = buffer; *i != '\0'; i++)
+	{
+		if (*i >= '0' && *i <= '9')
+		{
+			resultado = resultado * 10 + (*i - '0');
+		}
+	}
+	return resultado;
 }
 
 // Interrupt routines
@@ -360,15 +398,40 @@ ISR(USART_RX_vect)
 	cli();
 	
 	comando = UDR0;
-	
-	if (comando == '\n')  // Usamos salto de línea como terminador
+	/*
+	if (comando == ',')
 	{
-		buffer[index] = '\0'; // cerramos el string
-		doble_comando = atoi((char*)buffer); // convertimos a número
-		index = 0; // reseteamos para el próximo número
+		buffer[indice] = '\n';
+		new_data = 1;
+		indice = 0;
+	}
+	else
+	{
+		buffer[indice] = comando;
+		indice = indice + 1;
+		if (indice >= 6)
+		{
+			indice = 0;
+		}
+	}
+	*/
+
+	if (comando == ',') // Si la cadena termina en el caracter de "enter" entra al if
+	{
+		buffer[indice] = '\0';	// Termina el string
+		new_data = 1;					// Enciende la bandera de UART
+		largo_buff = indice;
+		indice = 0;				// Reinicia el índice del buffer
+	}
+	else
+	{
+		if (indice < sizeof(buffer) - 1) // Mientras que el índice del caracter recibido sea menor que el tamaño de la lista (Buffer) entra al if
+		{
+			buffer[indice++] = comando;	// Guarda en la lista el caracter recibido y suma uno al índice de la lista
+		}
 	}
 
-	write_char(comando);
+	//write_char(comando);
 	
 	sei();
 }
