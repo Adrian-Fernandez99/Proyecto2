@@ -17,7 +17,14 @@ ADAFRUIT_IO_USERNAME = "pato99"
 ADAFRUIT_IO_KEY = ""
 
 # Set to the ID of the feed to subscribe to for updates.
-FEED_ID_servo1_RX = 'proyecto-silla.servo1-rx'
+FEED_servo1_RX = 'proyecto-silla.servo1-rx'
+FEED_servo1_TX = 'proyecto-silla.servo1-tx'
+FEED_servo2_RX = 'proyecto-silla.servo2-rx'
+FEED_servo2_TX = 'proyecto-silla.servo2-tx'
+FEED_servo3_RX = 'proyecto-silla.servo3-rx'
+FEED_servo3_TX = 'proyecto-silla.servo3-tx'
+FEED_servo4_RX = 'proyecto-silla.servo4-rx'
+FEED_servo4_TX = 'proyecto-silla.servo4-tx'
 
 # Define "callback" functions which will be called when certain events 
 # happen (connected, disconnected, message arrived).
@@ -29,7 +36,10 @@ def connected(client):
     """
     # Subscribe to changes on a feed named Counter.
     print('Subscribing to Feeds... ')
-    client.subscribe(FEED_ID_servo1_RX)
+    client.subscribe(FEED_servo1_RX)
+    client.subscribe(FEED_servo2_RX)
+    client.subscribe(FEED_servo3_RX)
+    client.subscribe(FEED_servo4_RX)
     print('Waiting for feed data...')
 
 def disconnected(client):
@@ -43,9 +53,19 @@ def message(client, feed_id, payload):
     """
     
     print('Feed {0} received new value: {1}'.format(feed_id, payload))
-    # Publish or "send" message to corresponding feed    
+    # Publish or "send" message to corresponding feed  
+    if feed_id == FEED_servo1_RX:
+        prefijo = '1'
+    elif feed_id == FEED_servo2_RX:
+        prefijo = '2'
+    elif feed_id == FEED_servo3_RX:
+        prefijo = '3'
+    elif feed_id == FEED_servo4_RX:
+        prefijo = '4'
+    else:
+        return  
 
-    miarduino.write(bytes(f"{payload}\n", 'utf-8'))
+    miarduino.write(bytes(f"{prefijo}{payload},", 'utf-8'))
     print(f'Sending data back: {payload}')
 
 
@@ -87,5 +107,22 @@ while True:
         print(f'Datos recibidos del Arduino: {data}')
         
         value = 0
+
+        if data.startswith("S1:"):
+            value = data[3:]
+            print(f"Valor de S1:{value}\n")
+            client.publish(FEED_servo1_TX, value)
+        elif data.startswith("S2:"):
+            value = data[3:]
+            print(f"Valor de S2: {value}\n")
+            client.publish(FEED_servo2_TX, value)
+        elif data.startswith("S3:"):
+            value = data[3:]
+            print(f"Valor de S3: {value}\n")
+            client.publish(FEED_servo3_TX, value)
+        elif data.startswith("S4:"):
+            value = data[3:]
+            print(f"Valor de S4: {value}\n")
+            client.publish(FEED_servo4_TX, value)
 
         print(f"Publicando en Adafruit: '{value}'")

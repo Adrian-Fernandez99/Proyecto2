@@ -50,6 +50,9 @@ uint8_t modo = 0;
 uint8_t place = 0;
 uint8_t habilitar = 0;
 
+uint16_t servil1 = 0;
+uint16_t servil2 = 0;
+uint16_t servil3 = 0;
 uint16_t servil4 = 0;
 
 char comando;
@@ -59,7 +62,7 @@ volatile uint8_t indice = 0;
 volatile uint8_t new_data = 0;
 volatile uint8_t largo_buff = 0;
 
-uint16_t buffertime(char* buffer);
+void serviltime(uint16_t* servil);
 
 // MAIN LOOP
 int main(void)
@@ -126,20 +129,34 @@ int main(void)
 		{
 			if (new_data == 1)
 			{
-				servil4 = 0;
-				for (uint8_t i = 0; i < largo_buff; i++)
+				if (buffer[0] == '1')
 				{
-					servil4 = servil4 * 10 + (buffer[i] - '0');
+					serviltime(&servil1);
 				}
-				
-				if (servil4 > 1023)
-				servil4 = 1023;
-				else if (servil4 < 139)
-				servil4 = 139;
+				else if (buffer[0] == '2')
+				{
+					serviltime(&servil2);
+				}
+				else if (buffer[0] == '3')
+				{
+					serviltime(&servil3);
+				}
+				else if (buffer[0] == '4')
+				{
+					serviltime(&servil4);
+				}
+				else
+				{
+					write_str("invalido");
+				}
+				write_char(buffer[0]);
 
 				new_data = 0;
 			}
 			
+			ADC_servo1 = servil1;
+			ADC_servo2 = servil2;
+			ADC_servo3 = servil3;
 			ADC_servo4 = servil4;
 			
 			mapeo_servo(1, ADC_servo1, ADC_servo2, &PWM_1, &PWM_2);
@@ -346,17 +363,18 @@ void write_str(char* texto)
 	}
 }
 
-uint16_t buffertime(char* buffer)
+void serviltime(uint16_t* servil)
 {
-	uint16_t resultado = 0;
-	for (char* i = buffer; *i != '\0'; i++)
+	*(servil) = 0;
+	for (uint8_t i = 1; i < largo_buff; i++)
 	{
-		if (*i >= '0' && *i <= '9')
-		{
-			resultado = resultado * 10 + (*i - '0');
-		}
+		*(servil) = *(servil) * 10 + (buffer[i] - '0');
 	}
-	return resultado;
+	
+	if (*(servil) > 1023)
+	*(servil) = 1023;
+	else if (*(servil) < 139)
+	*(servil) = 139;
 }
 
 // Interrupt routines
