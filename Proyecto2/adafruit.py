@@ -10,7 +10,7 @@ from Adafruit_IO import Client, Feed
 # holds the count for the feed
 run_count = 0
 
-# Set to your Adafruit IO username and key.
+# Set to your Adafruit IO username and key. 
 # Remember, your key is a secret,
 # so make sure not to publish it when you publish this code!
 ADAFRUIT_IO_USERNAME = "pato99"
@@ -26,6 +26,9 @@ FEED_servo3_TX = 'proyecto-silla.servo3-tx'
 FEED_servo4_RX = 'proyecto-silla.servo4-rx'
 FEED_servo4_TX = 'proyecto-silla.servo4-tx'
 
+FEED_modos = 'proyecto-silla.modos'
+FEED_poisson = 'proyecto-silla.poisson'
+
 # Define "callback" functions which will be called when certain events 
 # happen (connected, disconnected, message arrived).
 def connected(client):
@@ -40,6 +43,8 @@ def connected(client):
     client.subscribe(FEED_servo2_RX)
     client.subscribe(FEED_servo3_RX)
     client.subscribe(FEED_servo4_RX)
+    client.subscribe(FEED_modos)
+    client.subscribe(FEED_poisson)
     print('Waiting for feed data...')
 
 def disconnected(client):
@@ -62,6 +67,10 @@ def message(client, feed_id, payload):
         prefijo = '3'
     elif feed_id == FEED_servo4_RX:
         prefijo = '4'
+    elif feed_id == FEED_modos:
+        prefijo = 'M'
+    elif feed_id == FEED_poisson:
+        prefijo = 'P'
     else:
         return  
 
@@ -108,21 +117,21 @@ while True:
         
         value = 0
 
-        if data.startswith("S1:"):
-            value = data[3:]
-            print(f"Valor de S1:{value}\n")
+        if data.startswith('1'):
+            value = data[1:5]
+            print(f"Valor del servo 1 es: {value}\n")
             client.publish(FEED_servo1_TX, value)
-        elif data.startswith("S2:"):
-            value = data[3:]
-            print(f"Valor de S2: {value}\n")
+        elif data.startswith('2'):
+            value = data[1:5]
+            print(f"Valor del servo 2: {value}\n")
             client.publish(FEED_servo2_TX, value)
-        elif data.startswith("S3:"):
-            value = data[3:]
-            print(f"Valor de S3: {value}\n")
+        elif data.startswith('3'):
+            value = data[1:5]
+            print(f"Valor del servo 3: {value}\n")
             client.publish(FEED_servo3_TX, value)
-        elif data.startswith("S4:"):
-            value = data[3:]
-            print(f"Valor de S4: {value}\n")
+        elif data.startswith('4'):
+            value = data[1:5]
+            print(f"Valor del servo 4: {value}\n")
             client.publish(FEED_servo4_TX, value)
 
         print(f"Publicando en Adafruit: '{value}'")

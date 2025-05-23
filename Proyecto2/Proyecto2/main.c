@@ -15,6 +15,7 @@ uso de dos potenciometros ditstintos.
 #include <avr/io.h>
 #include <util/delay.h>
 #include <avr/interrupt.h>
+#include <stdlib.h>
 
 // Prototipos de función
 void setup();
@@ -50,6 +51,9 @@ uint8_t modo = 0;
 uint8_t place = 0;
 uint8_t habilitar = 0;
 
+uint8_t modisimo = 0;
+uint8_t estadisimo = 0;
+
 uint16_t servil1 = 0;
 uint16_t servil2 = 0;
 uint16_t servil3 = 0;
@@ -63,6 +67,7 @@ volatile uint8_t new_data = 0;
 volatile uint8_t largo_buff = 0;
 
 void serviltime(uint16_t* servil);
+void envio_datos(uint16_t dato, char prefijo);
 
 // MAIN LOOP
 int main(void)
@@ -73,6 +78,48 @@ int main(void)
 		led_on(modo, place);
 		if (modo == 0)
 		{
+			if (new_data == 1)
+			{
+				new_data = 0;
+				if (buffer[0] == 'M')
+				{
+					if (buffer[1] == '1')
+					{
+						modisimo = 1;
+					}
+				}
+				else if (buffer[0] == 'P')
+				{
+					if (buffer[1] == '1')
+					{
+						estadisimo = 1;
+					}
+					else if (buffer[1] == '2')
+					{
+						if (modo != 1)
+						{
+							habilitar = 1;
+						}
+					}
+				}
+			}
+			
+			if (modisimo == 1)
+			{
+				modisimo = 0;
+				modo = 1;
+			}
+			
+			if (estadisimo == 1)
+			{
+				estadisimo = 0;
+				place++;
+				if (place == 4)
+				{
+					place = 0;
+				}
+			}
+			
 			ADC_servo1 = ADC_read(6);
 			ADC_servo2 = ADC_read(7);
 			
@@ -106,6 +153,48 @@ int main(void)
 		
 		else if (modo == 1)
 		{
+			if (new_data == 1)
+			{
+				new_data = 0;
+				if (buffer[0] == 'M')
+				{
+					if (buffer[1] == '1')
+					{
+						modisimo = 1;
+					}
+				}
+				else if (buffer[0] == 'P')
+				{
+					if (buffer[1] == '1')
+					{
+						estadisimo = 1;
+					}
+					else if (buffer[1] == '2')
+					{
+						if (modo != 1)
+						{
+							habilitar = 1;
+						}
+					}
+				}
+			}
+			
+			if (modisimo == 1)
+			{
+				modisimo = 0;
+				modo = 2;
+			}
+			
+			if (estadisimo == 1)
+			{
+				estadisimo = 0;
+				place++;
+				if (place == 4)
+				{
+					place = 0;
+				}
+			}
+			
 			ADC_servo1 = ((load_(1, place, 0)) << 8) | (load_(1, place, 1));
 			ADC_servo2 = ((load_(2, place, 0)) << 8) | (load_(2, place, 1));
 			
@@ -129,29 +218,68 @@ int main(void)
 		{
 			if (new_data == 1)
 			{
+				new_data = 0;
 				if (buffer[0] == '1')
 				{
 					serviltime(&servil1);
+					envio_datos(servil1, '1');
 				}
 				else if (buffer[0] == '2')
 				{
 					serviltime(&servil2);
+					envio_datos(servil2, '2');
 				}
 				else if (buffer[0] == '3')
 				{
 					serviltime(&servil3);
+					envio_datos(servil3, '3');
 				}
 				else if (buffer[0] == '4')
 				{
 					serviltime(&servil4);
+					envio_datos(servil4, '4');
+				}
+				else if (buffer[0] == 'M')
+				{
+					if (buffer[1] == '1')
+					{
+						modisimo = 1;
+					}
+				}
+				else if (buffer[0] == 'P')
+				{
+					if (buffer[1] == '1')
+					{
+						estadisimo = 1;
+					}
+					else if (buffer[1] == '2')
+					{
+						if (modo != 1)
+						{
+							habilitar = 1;
+						}
+					}
 				}
 				else
 				{
 					write_str("invalido");
+				}				
+			}
+			
+			if (modisimo == 1)
+			{
+				modisimo = 0;
+				modo = 0;
+			}
+			
+			if (estadisimo == 1)
+			{
+				estadisimo = 0;
+				place++;
+				if (place == 4)
+				{
+					place = 0;
 				}
-				write_char(buffer[0]);
-
-				new_data = 0;
 			}
 			
 			ADC_servo1 = servil1;
@@ -169,6 +297,17 @@ int main(void)
 			
 			PWM_4 = map_servo2(ADC_servo4);
 			OCR2B = PWM_4; // Setear duty cycle
+			
+			if (habilitar == 1)
+			{
+				save_(1, place, ADC_servo1);
+				save_(2, place, ADC_servo2);
+				save_(3, place, ADC_servo3);
+				save_(4, place, ADC_servo4);
+				habilitar = 0;
+			}
+			
+			_delay_ms(20);  // Tiempo entre actualizaciones
 
 		}
 
@@ -231,7 +370,7 @@ uint16_t ADC_read(uint8_t PIN)
 	ADMUX = (ADMUX & 0xF0) | (PIN & 0x0F);	// Selecciona pin de lectura
 	ADCSRA |= (1 << ADSC);                   // Inicia conversión
 	while (ADCSRA & (1 << ADSC));            // Espera a que termine
-	return ADC;                              // Devuelve valor (10 bits)
+	return ADC;                              //	Devuelve valor (10 bits)
 }
 
 void mapeo_servo(uint8_t PWM_select, uint16_t ADC_servo1, uint16_t ADC_servo2, uint16_t* PWM_1, uint16_t* PWM_2)
@@ -377,36 +516,46 @@ void serviltime(uint16_t* servil)
 	*(servil) = 139;
 }
 
+void envio_datos(uint16_t dato, char prefijo)
+{	
+	uint8_t cambio[4];  // Arreglo de 4 elementos
+	cambio[3] = (dato % 10) + '0';              // unidades
+	cambio[2] = ((dato / 10) % 10) + '0';       // decenas
+	cambio[1] = ((dato / 100) % 10) + '0';      // centenas
+	cambio[0] = ((dato / 1000) % 10) + '0';     // millares
+	
+	write_char(prefijo);
+	write_char(cambio[0]);
+	write_char(cambio[1]);
+	write_char(cambio[2]);
+	write_char(cambio[3]);
+}
+
 // Interrupt routines
 ISR(PCINT2_vect)
 {
 	cli();
 	
-	_delay_ms(5);
+	_delay_ms(10);
 	// Si el pin está encendido en el pin 2 incrementa
 	if (!(PIND & (1 << PORTD2)))
 	{
-		modo++;
-		if (modo == 3)
-		{
-			modo = 0;
-		}
+		modisimo = 1;
 	}
 	
 	// Si el pin está encendido en el pin 4 incrementa
 	else if (!(PIND & (1 << PORTD4)))
 	{
-		place++;
-		if (place == 4)
-		{
-			place = 0;
-		}
+		estadisimo = 1; 
 	}
 	
 	// Si el pin está encendido en el pin 5 decrementa
 	else if (!(PIND & (1 << PORTD5)))
 	{
-		habilitar = 1;
+		if (modo != 1)
+		{
+			habilitar = 1;	
+		}
 	}
 	sei();
 }
@@ -416,24 +565,7 @@ ISR(USART_RX_vect)
 	cli();
 	
 	comando = UDR0;
-	/*
-	if (comando == ',')
-	{
-		buffer[indice] = '\n';
-		new_data = 1;
-		indice = 0;
-	}
-	else
-	{
-		buffer[indice] = comando;
-		indice = indice + 1;
-		if (indice >= 6)
-		{
-			indice = 0;
-		}
-	}
-	*/
-
+	
 	if (comando == ',') // Si la cadena termina en el caracter de "enter" entra al if
 	{
 		buffer[indice] = '\0';	// Termina el string
@@ -449,7 +581,6 @@ ISR(USART_RX_vect)
 		}
 	}
 
-	//write_char(comando);
 	
 	sei();
 }
