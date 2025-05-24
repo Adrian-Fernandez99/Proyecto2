@@ -120,12 +120,32 @@
     </ToolchainSettings>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="EEPROM\EEPROM.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="EEPROM\EEPROM.h">
+      <SubType>compile</SubType>
+    </Compile>
     <Compile Include="main.c">
       <SubType>compile</SubType>
     </Compile>
-    <Compile Include="USART.c">
+    <Compile Include="PWM\PWM.c">
       <SubType>compile</SubType>
     </Compile>
+    <Compile Include="PWM\PWM.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="USART\USART.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="USART\USART.h">
+      <SubType>compile</SubType>
+    </Compile>
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="EEPROM" />
+    <Folder Include="PWM" />
+    <Folder Include="USART" />
   </ItemGroup>
   <Import Project="$(AVRSTUDIO_EXE_PATH)\\Vs\\Compiler.targets" />
 </Project>
